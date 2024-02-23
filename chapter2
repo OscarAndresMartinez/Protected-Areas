@@ -1,0 +1,1491 @@
+clear all
+
+use "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VII\base de datos ap pura.dta"
+
+	drop if year==.
+	drop if metadataid==.
+	drop if type == "Point"
+	drop if iucn_cat == "Not Reported"
+	drop if iucn_cat == "Not Applicable"
+	drop if status == "Adopted"
+	drop if status == "Established"
+	drop if status == "Inscribed"
+	drop if status == "Proposed"
+	drop if desig_eng == "Ramsar Site, Wetland of International Importance" 
+	drop if desig_eng == "UNESCO-MAB Biosphere Reserve" 
+	drop if desig_eng == "World Heritage Site"
+	drop if desig_type == "International"
+	drop if country == "MNP;GUM"
+	drop if country == "MNP;UMI"
+	drop if country == "BFA;NER;BEN"
+	///// drop marine
+	drop if marine >0
+	drop if desig_eng =="National Marine Conservation Area"
+	drop if desig_eng =="Marine Protected Area"
+	drop if desig_eng =="Marine Reserve"
+	drop if desig_eng =="Marine Preserve"
+	drop if desig_eng =="Marine Park Addition"
+	drop if desig_eng =="Marine Management Area"
+	drop if desig_eng =="Marine National Park"
+	drop if desig_eng =="Coastline Marine Resource Development Area, designated sea area"
+	drop if desig_eng =="Marine National Reserve"
+	drop if desig_eng =="National Marine Park"
+	drop if desig_eng =="Marine Park"
+	drop if desig_eng =="Marine Nature Recreation Park"
+	drop if desig_eng =="State Marine Park"
+	drop if desig_eng =="Nature Reserve and Marine Reserve"
+	drop if desig_eng =="Locally Managed Marine Area"
+	drop if desig_eng =="Marine Managed Area"
+	drop if desig_eng =="Natural Marine Reserve and Natural Protected Marine Areas"
+	drop if desig_eng =="Wildlife Reserve / Marine Park"
+	drop if desig_eng =="Marine Conservation Area"
+	drop if desig_eng =="Marine Conservation Area / Wildlife Reserve"
+	drop if desig_eng =="Marine Reserve / Marine Conservation Area / Wildlife Reserve"
+	drop if desig_eng =="Marine Park / Marine Reserve / Wildlife Reserve"
+	drop if desig_eng =="Marine Nature Reserve"
+	drop if desig_eng =="Special Marine Reserve"
+	drop if desig_eng =="Marine Biological Reserve"
+	drop if desig_eng =="Marine Protected Area (OSPAR)"
+	drop if desig_eng =="Nature reserve zone in National Marine Park"
+	drop if desig_eng =="Marine  Park"
+	drop if desig_eng =="National Park and Marine Management Area"
+	drop if desig_eng =="Marine National Park and ASEAN Heritage Park"
+	drop if desig_eng =="Marine  Park (AMP)"
+	drop if desig_eng =="Marine Park (AMP)"
+	drop if desig_eng =="Marine Management Area / Marine Reserve"
+	drop if desig_eng =="Local Fisheries Marine Management Area"
+	drop if desig_eng =="International significance Natural Marine Area"
+	drop if desig_eng =="Marine Sanctuary"
+	drop if desig_eng =="Deep Water Marine Coast (CMAP)"
+	drop if desig_eng =="Marine and Coastal Protected Area"
+	drop if desig_eng =="Environment Conservation Marine Area"
+	drop if desig_eng =="Commonwealth Marine Reserve"
+	drop if desig_eng =="Absolute nature reserve zone in National Marine Park"
+	drop if desig_eng =="Marine Natural Monument"
+	drop if desig_eng =="Marine-Coastal National Park"
+	drop if desig_eng =="Marine Mammal Sanctuary"
+	drop if desig_eng =="Marine Recreation Park"
+	drop if desig_eng =="District Marine Protected Areas"
+	drop if desig_eng =="Australian Marine Park"
+	drop if desig_eng =="Marine Nature Park"
+	drop if desig_eng =="Protected Marine Area"
+	drop if desig_eng =="Turneffe Atoll Marine Reserve"
+	drop if desig_eng =="Nature Conservation Marine Protected Area"
+	drop if desig_eng =="Marine Protected Area (MPA)"
+	drop if desig_eng =="Marine Fisheries Reserved Area"
+	drop if desig_eng =="Marine Conservation Zone"
+	drop if desig_eng =="Marine Park Buffer Zone"
+	drop if desig_eng =="Marine Strict Nature Reserve"
+	drop if desig_eng =="Marine National Wildlife Area"
+	drop if desig_eng =="Marine Protected Area / Protected Land and Seascape"
+	drop if desig_eng =="Marine Resource Reserve"
+	drop if desig_eng =="Marine and Coastal Resources Protected Area"
+
+	**# generate terrestrial area 
+
+	generate repterr = gis_area - gis_m_area
+	drop if repterr<0
+	
+	
+**# generate groups by iucn category 
+
+generate estrictiucn  = iucn_cat if inlist(iucn_cat, "Ia","Ib", "II")
+gen estricta= repterr if estrictiucn!=""
+gen noestricta= repterr if estrictiucn==""
+
+
+**# collapse by year country 
+
+collapse (sum) estricta (sum) noestricta, by(year country)
+sort country year
+
+**# merge extention by country database 
+
+merge 1:1 year country using "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VI\extention_pais_forest_km2.dta"
+sort country year
+
+
+**# adjust data and generate: acumulate estricta and no estricta, and percentage each one  
+ 
+replace estricta =0 if estricta ==.
+replace noestricta =0 if noestricta ==.
+
+bysort country: gen acumestricta=sum( estricta)
+bysort country: gen acumnoestricta=sum( noestricta)
+
+bysort country: gen percentacumestricta= ((acumestricta/extent_pais_km2)*100)
+bysort country: gen percentacumnoestricta=((acumnoestricta/extent_pais_km2)*100)
+
+drop _merge 
+
+//generate total percent acumulate protected areas by country 
+
+generate Total_PA = acumestricta + acumnoestricta
+bysort country: gen Total_percent_PA =((Total_PA/extent_pais_km2)*100)
+
+generate total_percent_PA = percentacumestricta + percentacumnoestricta
+
+
+
+///generate mean by percentacumestricta and percentacumnoestricta
+egen meanpercentacumestricta= mean(percentacumestricta), by (country)
+egen meanpercentacumnoestricta= mean(percentacumnoestricta), by (country)
+egen meantotal_PA=mean(Total_percent_PA), by(country)
+
+
+
+**# merge BII and RLI index database and rename label each index 
+merge 1:1 year country using "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VI\BII_ and_ RLI.dta"
+
+sort country year
+drop _merge 
+
+generate RLI= rli*100
+generate BII= BII_index*100
+drop rli
+drop BII_index
+label variable BII "Biodiversity Intactness Index"
+label variable RLI "Red List Index "
+
+**# merge SHI index database and rename label 
+///mol data 
+merge 1:1 year country using "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VII\shi_country_year_agg_MOL.dta" //
+
+sort country year
+drop _merge 
+rename national_shi SHI 
+label variable SHI "Species Habitat Index"
+
+
+**# merge covariables 
+
+merge 1:1 year country using "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VI\covariates_full_new_2.dta"
+sort country year
+
+
+**# keep year from 2001 to 2014
+keep if _merge==3 
+keep if year>=2001 & year<=2014
+drop _merge
+
+
+***********************************************************
+**# group income countries 
+
+merge 1:1 year country using "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\Income groups by country.dta"
+sort country year
+keep if _merge==3 
+drop _merge
+
+
+encode incomegroup, generate(income_group)
+label define income_grouplbl 1 "High income (H)" 2 "Low income (L)" 3 "Lower middle income (LM)"  4 "No data (ND)" 5 "Upper middle income (UM)"
+label values income_group income_grouplbl 
+
+
+gen High_income=1 if incomegroup=="H"
+replace High_income=0 if High_income==.
+
+gen Low_income=1 if incomegroup=="L"
+replace Low_income=0 if Low_income==.  
+
+gen Lower_middle_income =1 if incomegroup=="LM"
+replace Lower_middle_income=0 if Lower_middle_income==.
+
+gen Upper_middle_income=1 if incomegroup=="UM"
+replace Upper_middle_income=0 if Upper_middle_income==.
+
+gen No_data=1 if incomegroup=="ND"  
+replace No_data=0 if No_data==. 
+
+
+
+
+///merge tree cover loss 
+merge 1:1 year country using "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\Treecover_loss_by_region__ha.dta"
+sort country year
+keep if _merge==3 
+drop _merge
+
+
+///adjust variable tree_cover_loss percentage   
+
+bysort country: generate Tree_cover_loss__km2 = (Tree_cover_loss__ha/100)
+bysort country: generate Percentage_Tree_cover_loss= (Tree_cover_loss__km2/extent_pais_km2)*100
+label variable Percentage_Tree_cover_loss "Percentage Tree Cover Loss"
+
+
+/////GDP_percapita 
+
+merge 1:1 year country using "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\gdp_percapita.dta"
+sort country year
+keep if _merge==3 
+drop _merge
+
+
+
+
+//drop merge and points by index and null data by country 
+drop _merge 
+
+drop if RLI==.
+drop if SHI==. 
+drop if BII==. 
+drop if country == "SRB" //ok
+drop if country == "SDN" //ok
+drop if country=="JOR" //ok by Percentage_Tree_cover_loss
+drop if country=="MLT"
+drop if country=="MRT"
+drop if country=="NER"
+
+drop if country=="VUT" //ok rqe
+drop if country=="CPV"
+
+
+
+**# determinate panel data 
+
+xtset ID year, yearly
+
+
+**# generate global covariables
+
+global xvar "GDPgrowthannual changetempyear changepopulationdensityyea changeprecip Arablelandoflandarea percentforest_country percentagric_country gee rqe rle cce"
+
+global xvarb "GDPgrowthannual Agricultureforestryandfishi Agriculturearea1000ha MeantemperaturyearC Populationdensity precipitationmm Arablelandoflandarea percentforest_country percentagric_country gee rqe rle cce America Europe Africa Asia Oceania Tree_cover_loss__ha High_income Low_income Lower_middle_income Upper_middle_income"
+
+
+
+***#///tabstat variables by country and continent 
+
+tabstat RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta, statistics( mean max min ) by(Countryname) noseparator labelwidth(100) varwidth(100) columns(statistics) longstub format(%4.3f)
+
+tabstat RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta, statistics( mean max min ) by(Continents) noseparator labelwidth(100) varwidth(100) columns(statistics) longstub format(%4.3f)
+
+sum GDPgrowthannual Agricultureforestryandfishi Agriculturearea1000ha Populationdensity precipitationmm Arablelandoflandarea percentforest_country percentagric_country gee rqe rle cce,d
+
+**# CORRELATION 
+///Protected areas
+correlate percentacumestricta percentacumnoestricta Total_percent_PA, covariance
+pwcorr percentacumestricta percentacumnoestricta Total_percent_PA, sig print(.01) star(.01)
+spearman percentacumestricta percentacumnoestricta Total_percent_PA, star(.05) stats(rho obs p) bonferroni
+correlate RLI BII SHI, covariance
+pwcorr RLI BII SHI, sig print(.01) star(.01)
+spearman RLI BII SHI, star(.05) stats(rho obs p) bonferroni
+pwcorr percentacumestricta ID, sig print(.01) star(.01) 
+			 
+			 
+			 
+			 
+correlate percentacumestricta percentacumnoestricta RLI BII SHI GDPpercapitacurrentUS Percentage_Tree_cover_loss cce rle rqe gee Arablelandoflandarea precipitationmm Populationdensity MeantemperaturyearC Agricultureforestryandfishi, covariance
+
+
+pwcorr year percentacumestricta percentacumnoestricta total_percent_PA BII RLI SHI GDPgrowthannual Agricultureforestryandfishi Agriculturearea1000ha MeantemperaturyearC Populationdensity precipitationmm Arablelandoflandarea percentforest_country percentagric_country gee rqe rle cce America Europe Africa Asia Oceania Tree_cover_loss__ha High_income Low_income Lower_middle_income Upper_middle_income
+
+pwcorr year percentacumestricta percentacumnoestricta total_percent_PA BII RLI SHI GDPgrowthannual Agricultureforestryandfishi Agriculturearea1000ha MeantemperaturyearC Populationdensity precipitationmm Arablelandoflandarea percentforest_country percentagric_country gee rqe rle cce America Europe Africa Asia Oceania Tree_cover_loss__ha High_income Low_income Lower_middle_income Upper_middle_income, sig
+
+pwcorr year percentacumestricta percentacumnoestricta total_percent_PA BII RLI SHI GDPgrowthannual Agricultureforestryandfishi Agriculturearea1000ha MeantemperaturyearC Populationdensity precipitationmm Arablelandoflandarea percentforest_country percentagric_country gee rqe rle cce America Europe Africa Asia Oceania Tree_cover_loss__ha High_income Low_income Lower_middle_income Upper_middle_income, sig print(.01) star(.01)
+
+
+pwcorr year percentacumestricta percentacumnoestricta total_percent_PA BII RLI SHI GDPpercapitagrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Populationdensity Arablelandoflandarea percentforest_country Percentage_Tree_cover_loss income_group, sig print(.01) star(.01)
+
+spearman year percentacumestricta percentacumnoestricta total_percent_PA BII RLI SHI GDPpercapitagrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Populationdensity Arablelandoflandarea percentforest_country Percentage_Tree_cover_loss income_group, star(.05) stats(rho obs p) bonferroni
+
+
+///statistic covariables FIXED model
+
+xtreg RLI GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss, fe 
+
+xtreg BII GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss, fe
+
+xtreg SHI GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss, fe
+
+
+
+// random effect model
+xtreg RLI GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss, re
+xtreg BII  GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss, re
+xtreg SHI GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss, re
+xtcsd, pesaran abs
+
+
+//Braush-Pagan (LM) test: OLS vs RE 
+quietly xtreg RLI GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce  Percentage_Tree_cover_loss, re 
+quietly xtreg BII GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce  Percentage_Tree_cover_loss, re 
+quietly xtreg SHI GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce  Percentage_Tree_cover_loss, re
+xttest0
+
+//Hausman test 
+ quietly xtreg RLI GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss,fe 
+estimate store fe 
+quietly xtreg RLI GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss,re 
+estimate store re 
+hausman fe re
+quietly xtreg BII GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss,fe 
+estimate store fe 
+quietly xtreg BII GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss,re 
+estimate store re 
+hausman fe re
+quietly xtreg SHI GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss,fe 
+estimate store fe 
+quietly xtreg SHI GDPgrowthannual Agricultureforestryandfishi MeantemperaturyearC precipitationmm Arablelandoflandarea percentforest_country gee rqe rle cce Percentage_Tree_cover_loss,re 
+estimate store re 
+hausman fe re
+
+
+
+////generate continents variable 
+//America 
+generate Continents = 1 if inlist(country, "ATG", "BHS", "BRB", "BLZ", "CAN")| inlist(country, "CRI", "CUB", "DMA", "DOM", "SLV") | inlist(country,"GRD", "GTM","HTI", "HND", "JAM")|inlist(country, "NIC","MEX", "PAN","PRI","TTO") |inlist(country,"USA", "ARG","BOL", "BRA")| inlist(country,"CHL","COL", "ECU", "GUY") |inlist(country,"PRY","PER","SUR","URY","VEN") 
+//Asia
+replace Continents = 2 if inlist(country,"CHN", "QAT", "SAU", "PHL", "TWN")| inlist(country,"MYS", "ARE", "LBN", "JOR", "UZB") |inlist(country,"KGZ", "AZE", "TKM","TLS", "BTN", "LAO") | inlist(country,"KWT", "KHM", "IRQ", "AFG", "KAZ","BGD") | inlist(country,"MDV", "KOR", "VNM", "IND", "JPN") | inlist(country,"SGP", "THA", "PRK", "SYR" "NPL")| inlist(country,"MMR", "ARM", "BHR", "PSE", "BRN") | inlist(country,"CCK", "TJK", "MAC", "MNG", "OMN") |inlist(country,"YEM", "LKA", "HKG", "IDN", "ISR", "PAK", "NPL", "IRN")
+///Africa
+replace Continents = 3 if inlist(country,"MAR", "MUS", "DZA", "TUN", "NGA") | inlist(country,"SEN", "ZAF", "MDG", "ETH", "CPV") | inlist(country,"COD", "GHA", "SYC", "KEN", "TZA") | inlist(country,"MLI", "SDN", "CMR", "LBY", "NER") | inlist(country,"UGA", "SOM", "RWA", "CIV", "AGO") | inlist(country,"ZWE", "BFA", "ERI", "TCD", "MRT") | inlist(country,"NAM", "MOZ", "ZMB", "LBR", "SLE") | inlist(country,"BEN", "SWZ", "SSD", "GIN", "COG", "BDI") | inlist(country,"BWA", "GMB", "TGO", "GAB", "LSO") | inlist(country,"DJI", "GNQ", "MWI","CAF","COM", "GNB", "STP", "EGY")
+///Europe
+replace Continents = 4 if inlist(country,"ALB", "DEU", "ARM", "AUT", "BEL") | inlist(country,"BLR", "BIH", "BGR", "CYP", "HRV" ) | inlist(country,"DNK","SVK", "SVN", "ESP", "EST") |inlist(country,"RUS", "FIN", "FRA", "GEO","GIB") | inlist(country,"GRC", "HUN", "IRL", "ISL")| inlist(country,"ITA", "LIE", "LTO", "LUX", "MKD")| inlist(country,"MLT", "MDA", "NOR","NLD", "POL") |inlist(country,"GBR", "CZE", "ROU", "CHE", "SWE") | inlist(country,"TUR", "UKR", "PRT", "LTU", "GRL" )
+//Oceania
+replace Continents = 5 if inlist(country,"AUS", "NZL", "FJI", "GUM", "WSM")| inlist(country,"PNG", "NCL", "VUT", "PLW", "TUV") |inlist(country,"KIR", "TON", "NRU", "PYF", "COK") | inlist(country,"SLB", "MHL" "ASM", "NFK", "NIU") | inlist(country,"FSM", "PCN", "MNP", "WLF")
+tab Continents
+
+label define contlbl 1 "America" 2 "Asia" 3 "Africa"  4 "Europe" 5 "Oceania"
+label values Continents contlbl
+reg RLI  i.Continents percentacumestricta 
+reg RLI  i.Continents percentacumestricta Continents#c.percentacumestricta
+
+////difference km2 acumestricta by year 2000 and 2014
+
+gen htacumestricta= acumestricta if year==2000
+egen meanacumestricta = mean(htacumestricta), by (Countryname)
+
+gen gtacumestricta= acumestricta if year==2014
+egen mean_acumestricta = mean(gtacumestricta), by (Countryname)
+
+gen difmean = mean_acumestricta - meanacumestricta 
+
+///extention estricta by year 2007 and generate difference 2007-2000
+
+gen extacumestricta2007 = acumestricta if year==2007
+egen meanacumestricta2007 =mean(extacumestricta2007), by(Countryname)
+
+gen dif2007_2000 = meanacumestricta2007 - meanacumestricta 
+tab dif2007_2000  
+
+///generate variable difmean in percentage 
+
+gen pdifmean = (difmean/extent_pais_km2)*100
+
+///generate variable dif2007_2000  in percentage estricta 
+
+gen pdif2007_2000 = (dif2007_2000 /extent_pais_km2)*100
+
+
+/// generate extention acumnoestricta by year 2007 y 2000, generate difference between years  
+
+generate noestricta_acum2007 = acumnoestricta if year==2007 
+generate noestricta_acum2000 = acumnoestricta if year==2000
+
+egen meannoestricta_acum2007 = mean(noestricta_acum2007), by (Countryname)
+egen meannoestricta_acum2000 = mean(noestricta_acum2000), by (Countryname)
+
+generate diff_noestricta_2007_2000 = meannoestricta_acum2007 - meannoestricta_acum2000
+
+generate per_diff_noestricta_2007_2000 = (diff_noestricta_2007_2000/ extent_pais_km2)*100
+
+tab per_diff_noestricta_2007_2000 
+label variable per_diff_noestricta_2007_2000 "Cambio porcentual en superficie de AP no estrictas entre 2000-2007"
+
+/// generate difference km2 acumnoestrictas by year 2000 and 2014
+
+gen acumnoestricta2000= acumnoestricta if year==2000
+egen meanacumnoestricta2000 = mean(acumnoestricta2000), by (Countryname)
+
+gen acumnoestricta2014= acumnoestricta if year==2014
+egen meanacumnoestricta2014 = mean(acumnoestricta2014), by (Countryname)
+
+gen difmeannoestrict = meanacumnoestricta2014 - meanacumnoestricta2000 
+gen pdifmeannoestrict = (difmeannoestrict/extent_pais_km2)*100
+
+
+
+**#generate difference index by year 2001-2014
+
+************************
+///2001
+gen RLI2001 = RLI if year==2001
+egen meanRLI2001 = mean(RLI2001), by (Countryname)
+
+gen BII2001 = BII if year==2001
+egen meanBII2001 = mean(BII2001), by (Countryname)
+
+gen SHI2001 = SHI if year==2001
+egen meanSHI2001 = mean(SHI2001), by (Countryname)
+
+
+**************************
+////2014
+
+gen RLI2014 = RLI if year==2014
+egen meanRLI2014 = mean(RLI2014), by (Countryname)
+
+gen BII2014 = BII if year==2014
+egen meanBII2014 = mean(BII2014), by (Countryname)
+
+gen SHI2014 = SHI if year==2014
+egen meanSHI2014 = mean(SHI2014), by (Countryname)
+
+
+**********
+
+gen difRLI_ = meanRLI2014 - meanRLI2001
+gen difBII_= meanBII2014- meanBII2001
+gen difSHI_= meanSHI2014- meanSHI2001
+
+
+**# generate difference PAs by year 2001-2014
+
+///2001
+
+gen Total_percent_PA2001 = Total_percent_PA if year==2001
+egen meanTotal_percent_PA2001= mean(Total_percent_PA2001), by (Countryname)
+
+gen percentacumestricta2001 = percentacumestricta if year==2001
+egen meanpercentacumestricta2001= mean(percentacumestricta2001), by (Countryname)
+
+gen percentacumnoestricta2001 = percentacumnoestricta if year==2001
+egen meanpercentacumnoestricta2001= mean(percentacumnoestricta2001), by (Countryname)
+
+///2014
+
+gen Total_percent_PA2014 = Total_percent_PA if year==2014
+egen meanTotal_percent_PA2014= mean(Total_percent_PA2014), by (Countryname)
+
+gen percentacumestricta2014 = percentacumestricta if year==2014
+egen meanpercentacumestricta2014= mean(percentacumestricta2014), by (Countryname)
+
+gen percentacumnoestricta2014 = percentacumnoestricta if year==2014
+egen meanpercentacumnoestricta2014= mean(percentacumnoestricta2014), by (Countryname)
+
+
+gen Total_percent_PA_diff = meanTotal_percent_PA2001 - meanTotal_percent_PA2001
+gen percentacumestricta_diff= meanpercentacumestricta2014 - meanpercentacumestricta2001
+gen percentacumnoestricta_diff= meanpercentacumnoestricta2014- meanpercentacumnoestricta2001
+
+label variable difRLI_ "Difference RLI 2001-2014"
+
+label variable difBII_ "Difference BII 2001-2014"
+
+label variable difSHI_ "Difference SHI 2001-2014"
+
+
+
+
+**# Graphics
+
+///index - percentacumestricta percentacumnoestricta and total_ap  difference 2014-2001
+twoway (scatter difRLI percentacumestricta) (scatter difBII percentacumestricta) (scatter difSHI percentacumestricta), yline(0, lcolor(cranberry)) ytitle(`"Percentage index"') xtitle(`"Cumulative percentage Strictly PAs"') legend(off) 
+twoway (scatter difRLI percentacumnoestricta) (scatter difBII percentacumnoestricta) (scatter difSHI percentacumnoestricta), yline(0, lcolor(cranberry)) ytitle(`"Percentage index"') xtitle(`"Cumulative percentage Not Strictly PAs "') legend(off) 
+twoway (scatter difRLI total_percent_PA) (scatter difBII total_percent_PA) (scatter difSHI total_percent_PA), yline(0, lcolor(cranberry))  ytitle(`"Percentage index"') xtitle(`"Cumulative percentage PAs"') legend(position(6) span col(3)) 
+twoway (scatter difRLI total_percent_PA) (scatter difBII total_percent_PA) (scatter difSHI total_percent_PA), yline(0, lcolor(cranberry))  ytitle(`"Percentage"') xtitle(`"Cumulative percentage PAs"') by(Continents)  legend(position(6) span col(3)) 
+
+
+
+
+///index - mean percentacumestricta mean percentacumnoestricta difference 2014-2001
+
+twoway (scatter difRLI Total_percent_PA_diff ) (scatter difBII Total_percent_PA_diff ) (scatter difSHI Total_percent_PA_diff ), yline(0, lcolor(cranberry))
+twoway (scatter difRLI percentacumestricta_diff) (scatter difBII percentacumestricta_diff) (scatter difSHI percentacumestricta_diff), yline(0, lcolor(cranberry))
+twoway (scatter difRLI percentacumnoestricta_diff) (scatter difBII percentacumnoestricta_diff) (scatter difSHI percentacumnoestricta_diff), yline(0, lcolor(cranberry))
+
+
+///2001
+twoway (scatter RLI percentacumestricta if year==2001 ) (scatter BII percentacumestricta if year==2001 ) (scatter SHI percentacumestricta if year==2001), ytitle(`"Percentage Index"') xtitle(`" Cumulative percentage Strictly PAs 2001"') legend(position(6) span col(3)) 
+twoway (scatter RLI percentacumnoestricta if year==2001 ) (scatter BII percentacumnoestricta if year==2001 ) (scatter SHI percentacumnoestricta if year==2001), ytitle(`"Percentage Index"') xtitle(`"Cumulative percentage Not Strictly PAs 2001"') legend(position(6) span col(3)) 
+twoway (scatter RLI total_percent_PA if year==2001 ) (scatter BII total_percent_PA if year==2001 ) (scatter SHI total_percent_PA if year==2001), ytitle(`"Percentage Index"') xtitle(`" Cumulative percentage PAs 2001"') legend(position(6) span col(3)) 
+
+//2014
+twoway (scatter RLI percentacumestricta if year==2014) (scatter BII percentacumestricta if year==2014 ) (scatter SHI percentacumestricta if year==2014), ytitle(`"Percentage Index"') xtitle(`"Cumulative percentage Strictly PAs 2014"') legend(position(6) span col(3)) 
+twoway (scatter RLI percentacumnoestricta if year==2014 ) (scatter BII percentacumnoestricta if year==2014 ) (scatter SHI percentacumnoestricta if year==2014), ytitle(`"Percentage Index"') xtitle(`"Cumulative percentage No Strictly PAs 2014"') legend(position(6) span col(3)) 
+twoway (scatter RLI total_percent_PA if year==2014) (scatter BII total_percent_PA if year==2014) (scatter SHI total_percent_PA if year==2014), ytitle(`"Percentage Index"') xtitle(`" Cumulative percentage PAs 2014"') legend(position(6) span col(3))
+
+graph combine "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\index_strickly_2001.gph" "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\index_notstrictly_2001.gph" "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\index_totalpa_2001.gph" "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\index_strickly_2014.gph" "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\index_notstrictly_2014.gph" "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\index_totalpa_2014.gph", ycommon xcommon rows(2) iscale(*1) title("Differences Biodiversity indices  Vs Protected areas (2001-2014)") commonscheme
+
+///graphs lowess command
+lowess RLI percentacumestricta if year<=2007, bwidth(.4)
+lowess RLI percentacumnoestricta if year<=2007, bwidth(.4)
+lowess BII percentacumestricta, bwidth(.4)
+lowess BII percentacumnoestricta, bwidth(.4)
+lowess SHI percentacumestricta, bwidth(.4)
+lowess SHI percentacumnoestricta, bwidth(.4)
+
+lowess RLI GDPpercapitacurrentUS , bwidth(.4)
+lowess BII GDPpercapitacurrentUS , bwidth(.4)
+lowess SHI GDPpercapitacurrentUS , bwidth(.4)
+
+
+///Graphs box 
+
+graph box RLI BII SHI,  ytitle(`"Percentage"')
+graph box Total_percent_PA percentacumestricta percentacumnoestricta,  ytitle(`"Percentage"')
+graph box RLI BII SHI,  ytitle(`"Percentage"') over(Continents)
+graph box Total_percent_PA percentacumestricta percentacumnoestricta,  ytitle(`"Percentage"') over(Continents)
+
+
+graph box RLI BII SHI,  ytitle(`"Percentage"') legend(position(6) span)
+graph box RLI BII SHI if year ==2001,  ytitle(`"Percentage"') legend(position(6) span) ylabel(20(10)110) 
+graph box RLI BII SHI if year ==2014,  ytitle(`"Percentage"') legend(position(6) span) ylabel(20(10)110)
+graph combine  "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\mean indices 2001.gph" "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\mean indices 2014.gph", ycommon
+
+graph box RLI BII SHI if year ==2014,  ytitle(`"Percentage"') legend(position(6) span) ylabel(20(10)110) over(Continents)
+graph box RLI BII SHI if year ==2001,  ytitle(`"Percentage"') legend(position(6) span) ylabel(20(10)110) over(Continents)
+graph combine "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\mean indices  by continent2001.gph" "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\mean indices  by continent2014.gph", ycommon
+
+graph box Total_percent_PA percentacumestricta percentacumnoestricta if year ==2001,  ytitle(`"Percentage"') over(Continents) box(1, fcolor(olive)) box(2, fcolor(olive_teal)) marker(1, mcolor(olive)) marker(2, mcolor(olive_teal)) legend(position(6) span)
+graph box Total_percent_PA percentacumestricta percentacumnoestricta if year ==2014,  ytitle(`"Percentage"') over(Continents) box(1, fcolor(olive)) box(2, fcolor(olive_teal)) marker(1, mcolor(olive)) marker(2, mcolor(olive_teal)) legend(position(6) span)
+graph combine "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\mean protected areas by continent_2001.gph" "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\mean protected areas by continent_2014.gph", ycommon
+
+graph box Total_percent_PA percentacumestricta percentacumnoestricta if year ==2001,  ytitle(`"Percentage"') box(1, fcolor(olive)) box(2, fcolor(olive_teal)) marker(1, mcolor(olive)) marker(2, mcolor(olive_teal)) legend(position(6) span)
+graph box Total_percent_PA percentacumestricta percentacumnoestricta if year ==2014,  ytitle(`"Percentage"') box(1, fcolor(olive)) box(2, fcolor(olive_teal)) marker(1, mcolor(olive)) marker(2, mcolor(olive_teal)) legend(position(6) span)
+graph combine "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\mean protected areas 2001.gph" "C:\Users\oscarandresmartinez\OneDrive - Universidad de los Andes\PhD\VIII\mean protected areas 2014.gph", ycommon
+
+///adjust
+graph box RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta  ,  ytitle(`"Percentage"') legend(position(6) span) ylabel(0(5)110) 
+graph box RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta, box(4, fcolor(chocolate) lcolor(chocolate)) ytitle("Percentage variable") title("Overall Variables Analysed") legend(position(6) span col(3)) ylabel(0(5)100) scale(0.7) 
+graph box RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta, over(Continents) box(4, fcolor(chocolate) lcolor(chocolate)) marker(4, mcolor(chocolate)) ytitle("Percentage variable") ylabel(0(5)100) title("Overall Variables Analysed") legend(position(6) span) scale(0.7)
+
+
+///twoway
+twoway (scatter extent_pais_km2 ID, sort) (scatter Total_PA ID, sort) (scatter acumestricta ID, sort) (scatter acumnoestricta ID, sort)
+twoway (scatter  Total_PA extent_pais_km2) (scatter acumestricta extent_pais_km2 ) (scatter acumnoestricta extent_pais_km2 ) 
+twoway (scatter  Total_PA extent_pais_km2, sort) (scatter acumestricta extent_pais_km2 , sort) (scatter acumnoestricta extent_pais_km2 , sort) if year==2001
+twoway (scatter  Total_PA extent_pais_km2, sort) (scatter acumestricta extent_pais_km2 , sort) (scatter acumnoestricta extent_pais_km2 , sort) if year==2007
+twoway (scatter  Total_PA extent_pais_km2, sort) (scatter acumestricta extent_pais_km2 , sort) (scatter acumnoestricta extent_pais_km2 , sort) if year==2014
+twoway (scatter  acumestricta acumnoestricta Total_PA ) if year==2001 
+twoway (scatter  acumestricta acumnoestricta Total_PA ) if year==2007
+twoway (scatter  acumestricta acumnoestricta Total_PA ) if year==2014
+twoway (scatter  percentacumestricta percentacumnoestricta Total_percent_PA) if year==2001 
+twoway (scatter  percentacumestricta percentacumnoestricta Total_percent_PA) if year==2007 
+twoway (scatter  percentacumestricta percentacumnoestricta Total_percent_PA) if year==2014 
+twoway (scatter acumestricta acumnoestricta Total_PA ), by(Continents)
+twoway (scatter  percentacumestricta percentacumnoestricta Total_percent_PA), by(Continents)
+twoway (scatter  percentacumestricta percentacumnoestricta Total_percent_PA) if country=="CHL" 
+twoway (scatter  percentacumestricta percentacumnoestricta Total_percent_PA) if country=="CHL", by(year) 
+twoway (scatter  percentacumestricta percentacumnoestricta year) if country=="CHL" 
+
+///statistics
+
+tabstat RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta , by ( Continents ) stats (mean median min max) col(stats) save
+table () ( Continents stats ) (), statistic(mean  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta) statistic(median  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta) statistic(max  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta) statistic(min  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta) columns(statistics) nformat(%9.2f)
+table ( Continents ) () ( var ), statistic(mean  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta) statistic(sd  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta) statistic(min  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta) statistic(max  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta)  nformat(%9.2f)
+tabstat RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta, statistics( mean sd max min ) by(Continents) noseparator labelwidth(100) varwidth(100) columns(statistics) longstub format(%4.3f)
+
+
+////table by year 2001 y 2014
+tabstat RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta if year==2001, statistics( mean sd max min ) noseparator labelwidth(100) varwidth(100) columns(statistics) longstub format(%9.2f)
+tabstat RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta if year==2014, statistics( mean sd max min ) noseparator labelwidth(100) varwidth(100) columns(statistics) longstub format(%9.2f)
+
+///2001-2014
+tabstat RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta, statistics( mean sd max min ) by(Continents) noseparator labelwidth(100) varwidth(100) columns(statistics) longstub format(%9.2f)
+tabstat RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta if year==2014, statistics( mean sd max min ) by(Continents) noseparator labelwidth(100) varwidth(100) columns(statistics) longstub format(%9.2f)
+table () ( Continents) () if year==2001, statistic(mean  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta) statistic(median  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta) statistic(max  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta) statistic(min  RLI BII SHI Total_percent_PA percentacumestricta percentacumnoestricta)  nformat(%9.2f)
+
+
+**************************************************************************************************************************************************************************
+**************************************************************************************************************************************************************************
+**# Estimations DID_multiplegt
+
+gen D_cat = round(percentacumestricta)
+gen D_cat_p = round(percentacumnoestricta)
+gen D_total_ap =round(Total_percent_PA)
+
+ssc install did_multiplegt, replace
+
+///Without covariables and percent acumestricta, cluster ID
+
+///RLI
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(5) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect strictly Protected area on RLI))
+
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect strictly Protected area on RLI))
+
+
+/// BII
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(50) average_effect placebo(6) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect strictly Protected area on BII))
+
+
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect strictly Protected area on BII))
+
+
+///SHI 
+
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(50) average_effect placebo(6) longdiff_placebo jointtestplacebo trends_nonparam(ID) count_switchers_contr cluster(ID) graphoptions(title(Effect strictly Protected area on SHI))
+
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect strictly Protected area on SHI))
+
+
+
+///*******Without covariables and percent acum_no_estricta, cluster ID
+
+///RLI
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on RLI))
+
+///BII
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on BII))
+
+///SHI 
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on SHI))
+
+
+///***** Without covariates Total_percent_PA 
+
+did_multiplegt RLI ID year Total_percent_PA, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_total_ap) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect Total Protected area on RLI))
+
+did_multiplegt BII ID year Total_percent_PA, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_total_ap) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect Total Protected area on BII))
+
+did_multiplegt SHI ID year Total_percent_PA, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_total_ap) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Total Protected area on SHI))
+
+
+
+
+
+////CON PRUEBA 
+ereturn list
+scalar t_stat = e(effect_0)/e(se_effect_0)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+
+
+
+
+ereturn list
+scalar t_stat = e(effect_0)/e(se_effect_0)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_average)/e(se_effect_average)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_13)/e(se_effect_13)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_12)/e(se_effect_12)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_11)/e(se_effect_11)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_10)/e(se_effect_10)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_9)/e(se_effect_9)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_8)/e(se_effect_8)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_7)/e(se_effect_7)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_6)/e(se_effect_6)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_5)/e(se_effect_5)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_4)/e(se_effect_4)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_3)/e(se_effect_3)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+scalar t_stat = e(effect_2)/e(se_effect_2)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+   
+scalar t_stat = e(effect_1)/e(se_effect_1)
+scalar p_val = 2*normal(-abs(t_stat))
+di t_stat, p_val
+
+
+
+
+///With covariables cluster ID estrictas
+
+global xvarb "GDPpercapitacurrentUS Percentage_Tree_cover_loss precipitationmm MeantemperaturyearC Populationdensity Arablelandoflandarea Agricultureforestryandfishi cce rle rqe gee"
+
+correlate percentacumestricta percentacumnoestricta RLI BII SHI GDPpercapitacurrentUS Percentage_Tree_cover_loss cce rle rqe gee Arablelandoflandarea precipitationmm Populationdensity MeantemperaturyearC Agricultureforestryandfishi, covariance
+
+
+//RLI
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(10) average_effect placebo(6) longdiff_placebo jointtestplacebo controls($xvarb) trends_lin($xvarb) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI))
+
+//BII
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(10) average_effect placebo(6) longdiff_placebo jointtestplacebo controls($xvarb) cluster(ID) graphoptions(title(Effect strictly Protected area on BII))
+
+//SHI
+
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(10) average_effect placebo(6) longdiff_placebo jointtestplacebo controls($xvarb) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI))
+
+
+///With covariables and percent acumnoestricta, cluster ID
+
+///RLI
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls($xvarb)  cluster(ID) graphoptions(title(Effect No strictly Protected area on RLI))
+
+///BII
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls($xvarb)  cluster(ID) graphoptions(title(Effect No strictly Protected area on BII))
+
+///SHI 
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls($xvarb) cluster(ID) graphoptions(title(Effect No strictly Protected area on SHI))
+
+
+
+
+
+*************************************************************************************
+**# RLI, BII, SHI AS COVARIABLES Strict
+
+//RLI
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(BII SHI) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI))
+
+//BII
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(RLI SHI) cluster(ID) graphoptions(title(Effect strictly Protected area on BII))
+
+//SHI
+
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(RLI BII) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI))
+
+
+
+
+/////****not strictly
+///RLI
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(BII SHI)  cluster(ID) graphoptions(title(Effect No strictly Protected area on RLI))
+///BII
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(SHI)  cluster(ID) graphoptions(title(Effect No strictly Protected area on BII))
+///SHI 
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(RLI BII) cluster(ID) graphoptions(title(Effect No strictly Protected area on SHI))
+
+
+
+///*** TOTAL PERCENTAGE PA
+//RLI
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(BII SHI)  cluster(ID) graphoptions(title(Effect Total precentage Protected area on RLI))
+///BII
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(RLI SHI)  cluster(ID) graphoptions(title(Effect Total precentage Protected area on BII))
+///SHI 
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(RLI BII) cluster(ID) graphoptions(title(Effect Total precentage Protected area on SHI))
+
+
+
+
+///tree cover loss as treatment
+gen D_treeloss = round(Percentage_Tree_cover_loss)
+///RLI
+did_multiplegt RLI ID year Percentage_Tree_cover_loss, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_treeloss) breps(100) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Tree cover loss on RLI)) ///not effect 
+
+///BII
+did_multiplegt BII ID year Percentage_Tree_cover_loss, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_treeloss) breps(100) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Tree cover loss on BII)) ///average effect but not placebo test 
+ereturn list
+
+///SHI 
+did_multiplegt SHI ID year Percentage_Tree_cover_loss, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_treeloss) breps(100) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Tree cover loss on SHI)) ///average effect but not placebo test 
+ereturn list
+
+
+////tree cover loss as result 
+//TOTAL PA
+did_multiplegt Percentage_Tree_cover_loss ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Total precentage Protected area on Tree cover loss))
+ereturn list
+///strictly
+did_multiplegt Percentage_Tree_cover_loss ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Total precentage Protected area on Tree cover loss))
+ereturn list
+///not strictly 
+did_multiplegt Percentage_Tree_cover_loss ID year percentacumnoestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Total precentage Protected area on Tree cover loss))
+ereturn list
+
+
+
+********************************************************************************************************************
+**#******************* <covariables cluster ID, acumestricta *****************************************
+
+///covariables: GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi
+
+///RLI
+foreach var1 of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+	display "`var1'"
+	
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(`var') cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) 
+	
+}
+
+foreach var of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+
+	foreach var2 of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+	
+	foreach var3 of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+	
+
+display "`var1'" " "  "`var2'"  " "  "`var3'"
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(`var1' `var2' `var3') cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok 
+	}
+	}
+}
+
+///BII
+
+foreach var1 of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+	display "`var1'"
+	
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(`var1') cluster(ID) graphoptions(title(Effect strictly Protected area on BII)) 
+	
+}
+
+
+foreach var of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+
+	foreach var2 of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+	
+	foreach var3 of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+	
+
+display "`var1'" " "  "`var2'"  " "  "`var3'"
+
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(`var1' `var2' `var3') cluster(ID) graphoptions(title(Effect strictly Protected area on BII)) 
+	}
+	}
+}
+
+
+//SHI 
+foreach var1 of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+	display "`var1'"
+	
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(`var1') cluster(ID) graphoptions(title(Effect strictly Protected area on SHI)) 
+	
+}
+
+foreach var of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+
+	foreach var2 of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+	
+	foreach var3 of varlist GDPpercapitacurrentUS Percentage_Tree_cover_loss income_group Continents cce rle rqe gee Arablelandoflandarea precipitationmm MeantemperaturyearC Populationdensity Agricultureforestryandfishi {
+	
+
+display "`var1'" " "  "`var2'"  " "  "`var3'"
+
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(`var1' `var2' `var3') cluster(ID) graphoptions(title(Effect strictly Protected area on SHI)) 
+	}
+	}
+}
+
+///did_multiplegt estimations test
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(11) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(5) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS Percentage_Tree_cover_loss cce) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI))
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity GDPpercapitacurrentUS Percentage_Tree_cover_loss ) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity GDPpercapitacurrentUS Percentage_Tree_cover_loss Agricultureforestryandfishi MeantemperaturyearC income_group gee rle ) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity GDPpercapitacurrentUS Percentage_Tree_cover_loss Agricultureforestryandfishi MeantemperaturyearC income_group gee ) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity GDPpercapitacurrentUS Percentage_Tree_cover_loss Agricultureforestryandfishi MeantemperaturyearC income_group ) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity GDPpercapitacurrentUS Percentage_Tree_cover_loss Agricultureforestryandfishi MeantemperaturyearC) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity GDPpercapitacurrentUS Percentage_Tree_cover_loss Agricultureforestryandfishi ) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity GDPpercapitacurrentUS Percentage_Tree_cover_loss ) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(income_group GDPpercapitacurrentUS Percentage_Tree_cover_loss ) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok 
+
+
+
+///Run covariates individual 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Percentage_Tree_cover_loss) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(MeantemperaturyearC) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) // ok
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(precipitationmm ) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Arablelandoflandarea) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) // ok
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(gee) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //efecto en 9,10 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rqe) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //efecto en 7 y 9
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rle) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //sin efectos 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(cce) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //efecto en 9 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Agricultureforestryandfishi ) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Continents) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //sin efecto 
+
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(50) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(income_group) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI)) //ok
+
+
+
+//BII
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(income_group Percentage_Tree_cover_loss GDPpercapitacurrentUS ) cluster(ID) graphoptions(title(Effect strictly Protected area on BII )) //ok 
+
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS) cluster(ID) graphoptions(title(Effect strictly Protected area on BII )) //ok
+
+did_multiplegt BII  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Percentage_Tree_cover_loss) cluster(ID) graphoptions(title(Effect strictly Protected area on BII )) //ok
+
+did_multiplegt BII  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(MeantemperaturyearC) cluster(ID) graphoptions(title(Effect strictly Protected area on BII )) // ok
+
+did_multiplegt BII  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(precipitationmm ) cluster(ID) graphoptions(title(Effect strictly Protected area on BII )) //ok
+
+did_multiplegt BII  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Arablelandoflandarea) cluster(ID) graphoptions(title(Effect strictly Protected area on BII )) // ok
+
+did_multiplegt BII  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(gee) cluster(ID) graphoptions(title(Effect strictly Protected area on BII )) //check 
+
+did_multiplegt BII  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rqe) cluster(ID) graphoptions(title(Effect strictly Protected area on BII )) //check 
+
+did_multiplegt BII  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rle) cluster(ID) graphoptions(title(Effect strictly Protected area on BII )) //check 
+
+did_multiplegt BII  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(cce) cluster(ID) graphoptions(title(Effect strictly Protected area on BII )) //check 
+
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Agricultureforestryandfishi ) cluster(ID) graphoptions(title(Effect strictly Protected area on BII)) //
+
+did_multiplegt BII  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Continents) cluster(ID) graphoptions(title(Effect strictly Protected area on BII )) //check 
+
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(50) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(income_group) cluster(ID) graphoptions(title(Effect strictly Protected area on BII)) //ok
+
+
+
+//SHI
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI )) //ok 
+
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS ) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI )) //ok
+
+did_multiplegt SHI  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Percentage_Tree_cover_loss) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI )) //ok
+
+did_multiplegt SHI  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(MeantemperaturyearC) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI )) // ok
+
+did_multiplegt SHI  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(precipitationmm ) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI )) //ok
+
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Arablelandoflandarea) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI)) // ok
+
+did_multiplegt SHI  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(gee) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI )) //check 
+
+did_multiplegt SHI  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rqe) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI )) //check 
+
+did_multiplegt SHI  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rle) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI )) //check 
+
+did_multiplegt SHI  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(cce) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI )) //check 
+
+did_multiplegt SHI  ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Agricultureforestryandfishi) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI)) // ok
+
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Continents) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI )) //check 
+
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(50) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(income_group) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI)) //ok
+
+
+
+*******************************************************************
+**# covariables no strictly cluster ID 
+*******************************************************************
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity) cluster(ID) graphoptions(title(Effect Not  strictly Protected area on RLI)) //ok 
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(GDPgrowthannual) cluster(ID) graphoptions(title(Effect Not  strictly Protected area on RLI)) //ok
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Percentage_Tree_cover_loss) cluster(ID) graphoptions(title(Effect Not  strictly Protected area on RLI)) //ok
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(MeantemperaturyearC) cluster(ID) graphoptions(title(Effect Not strictly Protected area on RLI)) // ok
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(precipitationmm ) cluster(ID) graphoptions(title(Effect Not strictly Protected area on RLI)) //ok
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Arablelandoflandarea) cluster(ID) graphoptions(title(Effect Not strictly Protected area on RLI)) // ok
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(gee) cluster(ID) graphoptions(title(Effect Not strictly Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rqe) cluster(ID) graphoptions(title(Effect Not strictly Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rle) cluster(ID) graphoptions(title(Effect Not strictly Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(cce) cluster(ID) graphoptions(title(Effect Not strictly Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Agricultureforestryandfishi) cluster(ID) graphoptions(title(Effect Not strictly Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Continents) cluster(ID) graphoptions(title(Effect Not strictly Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(income_group) cluster(ID) graphoptions(title(Effect Not strictly Protected area on RLI)) //check 
+
+
+
+//BII
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) //ok 
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) //ok
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Percentage_Tree_cover_loss) cluster(ID) graphoptions(title(Effect Not  strictly Protected area on BII)) //ok
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(MeantemperaturyearC) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) // ok
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(precipitationmm ) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) //ok
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Arablelandoflandarea) cluster(ID) graphoptions(title(Effect Not  strictly Protected area on BII)) // ok
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(gee) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) //ok
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rqe) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) // pk
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rle) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) //check 
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(cce) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) //check 
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Agricultureforestryandfishi) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) //check 
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Continents) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) //check 
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(income_group) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) //check 
+
+
+
+
+
+///SHI 
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity) cluster(ID) graphoptions(title(Effect Not strictly Protected area on SHI)) //ok 
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS) cluster(ID) graphoptions(title(Effect Not strictly Protected area on SHI)) //ok
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Percentage_Tree_cover_loss) cluster(ID) graphoptions(title(Effect Not strictly Protected area on SHI)) //ok 
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(MeantemperaturyearC) cluster(ID) graphoptions(title(Effect Not strictly Protected area on SHI)) // ok
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(precipitationmm ) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) //ok
+
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Arablelandoflandarea) cluster(ID) graphoptions(title(Effect Not  strictly Protected area on SHI)) // ok
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(gee) cluster(ID) graphoptions(title(Effect Not strictly Protected area on SHI)) //ok 
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls( rqe ) cluster(ID) graphoptions(title(Effect Not strictly Protected area on SHI)) //ok
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rle) cluster(ID) graphoptions(title(Effect Not strictly Protected area on SHI)) //ok
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(cce) cluster(ID) graphoptions(title(Effect Not strictly Protected area on SHI)) //ok
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Agricultureforestryandfishi) cluster(ID) graphoptions(title(Effect Not strictly Protected area on SHI)) //check 
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Continents) cluster(ID) graphoptions(title(Effect Not strictly Protected area on SHI)) //check 
+
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(income_group) cluster(ID) graphoptions(title(Effect Not strictly Protected area on SHI)) //check 
+
+
+////TOTAL PERCENTAGE PROTECTED AREAS 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(10) average_effect placebo(6) longdiff_placebo jointtestplacebo controls( Populationdensity America Asia Europe ) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI))
+
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on RLI)) //ok 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(GDPgrowthannual) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on RLI)) //ok
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(percentforest_country) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on RLI)) //ok
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(percentagric_country) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on RLI)) //ok 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(MeantemperaturyearC) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on RLI)) // ok
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(precipitationmm ) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //ok
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Arablelandoflandarea) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) // ok
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(gee) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rqe) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rle) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(cce) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Agricultureforestryandfishi) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(America) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Asia) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Africa) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Europe) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Oceania) cluster(ID) graphoptions(title(Effect Not Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(10) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(High_income) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Low_income) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Lower_middle_income) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+did_multiplegt RLI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Upper_middle_income) cluster(ID) graphoptions(title(Effect Total percentage Protected area on RLI)) //check 
+
+
+//BII
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity) cluster(ID) graphoptions(title(Effect Not strictly Protected area on BII)) //ok 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(GDPgrowthannual) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //ok
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(percentforest_country) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //ok
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(percentagric_country) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //ok 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(MeantemperaturyearC) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) // ok
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(precipitationmm ) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //ok
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Arablelandoflandarea) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) // ok
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(gee) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //ok
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rqe) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) // pk
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rle) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(cce) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Agricultureforestryandfishi) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(America) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Asia) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Africa) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Europe) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Oceania) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(High_income) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Low_income) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Lower_middle_income) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Upper_middle_income) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //check 
+
+
+
+
+
+///SHI 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Populationdensity) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on SHI)) //ok 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(GDPgrowthannual) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) //ok
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(percentforest_country) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) //ok
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(percentagric_country) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) //ok 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(MeantemperaturyearC) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) // ok
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(precipitationmm ) cluster(ID) graphoptions(title(Effect Total percentage Protected area on BII)) //ok
+
+did_multiplegt BII ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Arablelandoflandarea) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) // ok
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(gee) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) //ok 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls( rqe ) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) //ok
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(rle) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) //ok
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(cce) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) //ok
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Agricultureforestryandfishi) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) //check 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(America) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) //check 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Asia) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) //check 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Africa) cluster(ID) graphoptions(title(Effect Total percentage Protected area on SHI)) //check 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Europe) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on SHI)) //check 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Oceania) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on SHI)) //check 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(High_income) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on SHI)) //check 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Low_income) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on SHI)) //check 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Lower_middle_incomeer) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on SHI)) //check 
+
+did_multiplegt SHI ID year total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo controls(Upper_middle_income) cluster(ID) graphoptions(title(Effect Total percentage  Protected area on SHI)) //check 
+
+
+
+
+
+**# xtdidregress
+
+
+xtdidregress (RLI) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+est store RLI
+outreg2  using reg.xls, replace
+
+xtdidregress (BII) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+outreg2  using indices.xls, append
+xtdidregress (SHI) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+outreg2  using indices.xls, append
+
+xtdidregress (RLI GDPpercapitacurrentUS Percentage_Tree_cover_loss Continents income_group cce rle rqe gee Arablelandoflandarea precipitationmm Populationdensity MeantemperaturyearC Agricultureforestryandfishi) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (BII GDPpercapitacurrentUS Percentage_Tree_cover_loss Continents income_group cce rle rqe gee Arablelandoflandarea precipitationmm Populationdensity MeantemperaturyearC Agricultureforestryandfishi) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (SHI GDPpercapitacurrentUS Percentage_Tree_cover_loss Continents income_group cce rle rqe gee Arablelandoflandarea precipitationmm Populationdensity MeantemperaturyearC Agricultureforestryandfishi) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+
+
+
+
+xtdidregress (RLI) (percentacumnoestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (BII) (percentacumnoestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (SHI) (percentacumnoestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+
+xtdidregress (SHI) (Total_percent_PA, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (BII) (Total_percent_PA, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (RLI) (Total_percent_PA, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+
+xtdidregress (RLI) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (BII) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (SHI) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+
+xtdidregress (SHI $xvar Continents) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (BII $xvar Continents) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (RLI $xvar Continents) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+
+
+xtdidregress (RLI GDPpercapitacurrentUS  Populationdensity Arablelandoflandarea gee rqe rle cce Percentage_Tree_cover_loss) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap(errorweight(normal))
+xtdidregress (BII GDPpercapitacurrentUS  Populationdensity Arablelandoflandarea gee rqe rle cce Percentage_Tree_cover_loss) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap(errorweight(normal))
+xtdidregress (SHI GDPpercapitacurrentUS  Populationdensity Arablelandoflandarea gee rqe rle cce Percentage_Tree_cover_loss) (percentacumestricta, continuous), nogteffects group(ID) time(year) wildbootstrap(errorweight(normal))
+
+//no strictly
+
+xtdidregress (RLI) (percentacumnoestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (BII) (percentacumnoestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (SHI) (percentacumnoestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+
+xtdidregress (SHI $xvar Continents) (percentacumnoestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (BII $xvar Continents) (percentacumnoestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+xtdidregress (RLI $xvar Continents) (percentacumnoestricta, continuous), nogteffects group(ID) time(year) wildbootstrap cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+
+
+**# LATAM
+
+// Strictly 
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(2) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect strictly Protected area on RLI))
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(4) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect strictly Protected area on BII))
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(4) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect strictly Protected area on SHI))
+
+
+///NO strictly
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat_p) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on RLI))
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat_p) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on BII))
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat_p) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on SHI))
+
+
+///total PAs
+did_multiplegt RLI ID year Total_percent_PA, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_total_ap) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Total Protected area on RLI))
+did_multiplegt BII ID year Total_percent_PA, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_total_ap) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Total Protected area on BII))
+did_multiplegt SHI ID year Total_percent_PA, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_total_ap) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Total Protected area on SHI))
+
+
+///with covariates
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(3) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS Percentage_Tree_cover_loss cce) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI))
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo  controls(GDPpercapitacurrentUS Percentage_Tree_cover_loss cce) cluster(ID) graphoptions(title(Effect strictly Protected area on BII))
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS Percentage_Tree_cover_loss cce) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI))
+
+
+///no strictly 
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat_p) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS Percentage_Tree_cover_loss cce) cluster(ID) graphoptions(title(Effect No strictly Protected area on RLI))
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat_p) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS Percentage_Tree_cover_loss cce)  cluster(ID) graphoptions(title(Effect No strictly Protected area on BII))
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat_p) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS Percentage_Tree_cover_loss cce) cluster(ID) graphoptions(title(Effect No strictly Protected area on SHI))
+
+
+/// total PAs
+did_multiplegt RLI ID year Total_percent_PA, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_total_ap) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS Percentage_Tree_cover_loss cce) cluster(ID) graphoptions(title(Effect Total Protected area on RLI))
+did_multiplegt BII ID year Total_percent_PA, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_total_ap) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS Percentage_Tree_cover_loss cce) cluster(ID) graphoptions(title(Effect Total Protected area on BII))
+did_multiplegt SHI ID year Total_percent_PA, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_total_ap) breps(1000) average_effect placebo(5) longdiff_placebo jointtestplacebo controls(GDPpercapitacurrentUS Percentage_Tree_cover_loss cce) cluster(ID) graphoptions(title(Effect Total Protected area on SHI))
+
+
+
+
+
+
+**# MAPS
+cd "C:\Users\oscarandresmartinez\Downloads"
+unzipfile WDPA_WDOECM_Feb2023_Public_SA_shp0
+unzipfile WDPA_WDOECM_Feb2023_Public_SA_shp_1
+unzipfile WDPA_WDOECM_Feb2023_Public_SA_shp_2
+spshape2dta WDPA_WDOECM_Feb2023_Public_SA_shp-polygons
+spshape2dta WDPA_WDOECM_Feb2023_Public_SA_shp-polygons1
+spshape2dta WDPA_WDOECM_Feb2023_Public_SA_shp-polygons_
+
+use "C:\Users\oscarandresmartinez\Downloads\WDPA_WDOECM_Feb2023_Public_SA_shp-polygons_.dta"
+merge 1:1 _ID using "C:\Users\oscarandresmartinez\Downloads\WDPA_WDOECM_Feb2023_Public_SA_shp-polygons1.dta"
+drop merge
+merge 1:1 _ID using "C:\Users\oscarandresmartinez\Downloads\WDPA_WDOECM_Feb2023_Public_SA_shp-polygons.dta"
+drop merge
+geoframe create PA_0, replace shpfile(WDPA_WDOECM_Feb2023_Public_SA_shp-polygons)
+geoframe create PA_1, replace shpfile(WDPA_WDOECM_Feb2023_Public_SA_shp-polygons1)
+geoframe create PA_2, replace shpfile(WDPA_WDOECM_Feb2023_Public_SA_shp-polygons_)
+geoframe create PA_3 datashape_pa.dta, replace shpfile(WDPA_WDOECM_Feb2023_Public_SA_shp-polygons)
+
+
+**# causal mediaton analysis 
+mediate (RLI GDPpercapitacurrentUS Percentage_Tree_cover_loss cce, noconstant) (BII GDPpercapitacurrentUS Percentage_Tree_cover_loss cce) (percentacumestricta, continuous(1/3)), ate aitec adtet vce(robust) cformat(%9.3f) pformat(%5.3f) sformat(%8.3f)
+estat effectsplot, ate
+
+
+
+**# VARIABLE LOG EXTENTION COUNTRY 
+
+gen logextcountry_ =log(extent_pais_km2)
+bysort country: gen logextcountry =log(extent_pais_km2)
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(10) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(5) longdiff_placebo jointtestplacebo controls(logextcountry) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI))
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(6) longdiff_placebo jointtestplacebo  controls (logextcountry) cluster(ID) graphoptions(title(Effect strictly Protected area on RLI))
+ereturn list
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo  controls (logextcountry) cluster(ID) graphoptions(title(Effect strictly Protected area on BII))
+ereturn list ///OK
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(6) longdiff_placebo jointtestplacebo  controls (logextcountry) cluster(ID) graphoptions(title(Effect strictly Protected area on BII))
+ereturn list //OK
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo  controls (logextcountry) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI))
+ereturn list ///OK
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(6) longdiff_placebo jointtestplacebo  controls (logextcountry) cluster(ID) graphoptions(title(Effect strictly Protected area on SHI))
+ereturn list ///ok 
+
+
+////percentacumnoestricta
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(1000) average_effect placebo(6) longdiff_placebo jointtestplacebo  controls (logextcountry) cluster(ID) graphoptions(title(Effect no strictly Protected area on RLI))
+ereturn list
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo  controls (logextcountry) cluster(ID) graphoptions(title(Effect no strictly Protected area on BII))
+ereturn list 
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo  controls (logextcountry) cluster(ID) graphoptions(title(Effect no strictly Protected area on SHI))
+ereturn list 
+
+
+////total PA
+did_multiplegt RLI ID year Total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo  controls (logextcountry) cluster(ID) graphoptions(title(Effect total Protected area on RLI))
+ereturn list
+did_multiplegt BII ID year Total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo  controls (logextcountry) cluster(ID) graphoptions(title(Effect total  Protected area on BII))
+ereturn list 
+did_multiplegt SHI ID year Total_percent_PA, robust_dynamic dynamic(12) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(6) longdiff_placebo jointtestplacebo  controls (logextcountry) cluster(ID) graphoptions(title(Effect total Protected area on SHI))
+ereturn list 
+
+
+
+
+**# keep only 2001, 2007 y 2014
+keep if year==2001 | year==2007 | year==2014
+
+
+////strictly
+///RLI
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(1) threshold_stable_treatment(1) reca(D_cat) breps(1000) average_effect placebo(1) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect strictly Protected area on RLI))
+/// BII
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(1) threshold_stable_treatment(1) reca(D_cat) breps(50) average_effect placebo(1) longdiff_placebo jointtestplacebo  trends_nonparam(ID) count_switchers_contr cluster(ID) graphoptions(title(Effect strictly Protected area on BII))
+///SHI 
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(1) threshold_stable_treatment(1) reca(D_cat) breps(50) average_effect placebo(1) longdiff_placebo jointtestplacebo trends_nonparam(ID) count_switchers_contr cluster(ID) graphoptions(title(Effect strictly Protected area on SHI))
+
+
+////no strictly
+///RLI
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(1) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on RLI))
+///BII
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(1) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on BII))
+///SHI 
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(1) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on SHI))
+
+
+///***** Without covariates Total_percent_PA 
+
+did_multiplegt RLI ID year Total_percent_PA, robust_dynamic dynamic(1) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect Total Protected area on RLI))
+did_multiplegt BII ID year Total_percent_PA, robust_dynamic dynamic(1) threshold_stable_treatment(1) reca(D_total_ap) breps(1000) average_effect placebo(1) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect Total Protected area on BII))
+did_multiplegt SHI ID year Total_percent_PA, robust_dynamic dynamic(1) threshold_stable_treatment(1) reca(D_total_ap) breps(1000) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Total Protected area on SHI))
+
+
+
+
+**# keep 2001/2005/2009/2014
+
+keep if year==2001 | year==2005 | year==2009 | year==2014
+
+////strictly
+///RLI
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect strictly Protected area on RLI))
+/// BII
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect strictly Protected area on BII))
+///SHI 
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect strictly Protected area on SHI))
+
+
+////no strictly
+///RLI
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on RLI))
+///BII
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on BII))
+///SHI 
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect No strictly Protected area on SHI))
+
+
+/// total_percent_PA 
+
+did_multiplegt RLI ID year Total_percent_PA, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect Total Protected area on RLI))
+did_multiplegt BII ID year Total_percent_PA, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo  cluster(ID) graphoptions(title(Effect Total Protected area on BII))
+did_multiplegt SHI ID year Total_percent_PA, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) graphoptions(title(Effect Total Protected area on SHI))
+
+
+
+**# controls
+did_multiplegt RLI ID year percentacumestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo  cluster(ID) controls(logextcountry) graphoptions(title(Effect strictly Protected area on RLI))
+did_multiplegt BII ID year percentacumestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo   controls(logextcountry) cluster(ID) graphoptions(title(Effect strictly Protected area on BII))
+did_multiplegt SHI ID year percentacumestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo  cluster(ID) controls(logextcountry) graphoptions(title(Effect strictly Protected area on SHI))
+
+////no strictly
+///RLI
+did_multiplegt RLI ID year percentacumnoestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) controls(logextcountry)  graphoptions(title(Effect No strictly Protected area on RLI))
+///BII
+did_multiplegt BII ID year percentacumnoestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) controls(logextcountry)  graphoptions(title(Effect No strictly Protected area on BII))
+///SHI 
+did_multiplegt SHI ID year percentacumnoestricta, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_cat_p) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) controls(logextcountry) graphoptions(title(Effect No strictly Protected area on SHI))
+
+
+/// total_percent_PA 
+
+did_multiplegt RLI ID year Total_percent_PA, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo  cluster(ID) controls(logextcountry)  graphoptions(title(Effect Total Protected area on RLI))
+did_multiplegt BII ID year Total_percent_PA, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo  cluster(ID) controls(logextcountry)  graphoptions(title(Effect Total Protected area on BII))
+did_multiplegt SHI ID year Total_percent_PA, robust_dynamic dynamic(2) threshold_stable_treatment(1) reca(D_total_ap) breps(100) average_effect placebo(1) longdiff_placebo jointtestplacebo cluster(ID) controls(logextcountry)  graphoptions(title(Effect Total Protected area on SHI))
+
+
+///control logextcountry NEW did command 
+
+did_multiplegt_dyn RLI ID year percentacumestricta, effects(12)  placebo(6) cluster(ID) controls(PopulationRural) graphoptions(title(Effect Total Protected area on RLI))
+did_multiplegt_dyn RLI ID year percentacumnoestricta, effects(12)  placebo(6) cluster(ID) controls(logextcountry)  graphoptions(title(Effect Total Protected area on BII))
+did_multiplegt_dyn RLI ID year Total_percent_PA, effects(12)  placebo(6) cluster(ID) controls(PopulationRural)  graphoptions(title(Effect Total Protected area on SHI))
+
+
+
+
+did_multiplegt_dyn BII ID year percentacumestricta, effects(12)  placebo(6) cluster(ID) controls(logextcountry)  graphoptions(title(Effect Total Protected area on RLI))
+did_multiplegt_dyn BII ID year percentacumnoestricta, effects(12)  placebo(6) cluster(ID) controls(logextcountry)  graphoptions(title(Effect Total Protected area on BII))
+did_multiplegt_dyn BII ID year Total_percent_PA, effects(12)  placebo(6) cluster(ID) controls(logextcountry)  graphoptions(title(Effect Total Protected area on SHI))
+
+
+did_multiplegt_dyn SHI ID year percentacumestricta, effects(12)  placebo(6) cluster(ID) controls(logextcountry)  graphoptions(title(Effect Total Protected area on RLI))
+did_multiplegt_dyn SHI ID year percentacumnoestricta, effects(12)  placebo(6) cluster(ID) controls(logextcountry)  graphoptions(title(Effect Total Protected area on BII))
+did_multiplegt_dyn SHI ID year Total_percent_PA, effects(12)  placebo(6) cluster(ID) controls(logextcountry)  graphoptions(title(Effect Total Protected area on SHI))
